@@ -1,4 +1,4 @@
--- name: UpdateEntry :one
+-- name: InsertNewEntry :one
 INSERT INTO entries(
   account_id,
   amount
@@ -7,3 +7,23 @@ INSERT INTO entries(
   $2
 )
 RETURNING *;
+
+-- name: UpdateEntry :one
+UPDATE entries
+SET amount = $2
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteEntryById :one
+DELETE FROM entries
+WHERE id = $1
+RETURNING *;
+
+-- name: GetEntriesByAccountId :many
+SELECT * FROM entries
+WHERE account_id = $1
+AND ($2::timestamp IS NULL OR created_time >= $2::timestamp)
+AND ($3::timestamp IS NULL OR created_time <= $3::timestamp)
+ORDER BY id
+LIMIT $4;
+
