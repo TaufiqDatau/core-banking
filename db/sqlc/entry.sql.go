@@ -31,24 +31,24 @@ func (q *Queries) DeleteEntryById(ctx context.Context, id int64) (Entry, error) 
 const getEntriesByAccountId = `-- name: GetEntriesByAccountId :many
 SELECT id, account_id, amount, created_at FROM entries
 WHERE account_id = $1
-AND ($2::timestamp IS NULL OR created_time >= $2::timestamp)
-AND ($3::timestamp IS NULL OR created_time <= $3::timestamp)
+AND ($2::timestamp IS NULL OR created_at>= $2::timestamp)
+AND ($3::timestamp IS NULL OR created_at<= $3::timestamp)
 ORDER BY id
 LIMIT $4
 `
 
 type GetEntriesByAccountIdParams struct {
 	AccountID int64     `json:"account_id"`
-	FromTime   time.Time `json:"from_time"`
-	ToTime   time.Time `json:"to_time"`
+	Column2   time.Time `json:"column_2"`
+	Column3   time.Time `json:"column_3"`
 	Limit     int32     `json:"limit"`
 }
 
 func (q *Queries) GetEntriesByAccountId(ctx context.Context, arg GetEntriesByAccountIdParams) ([]Entry, error) {
 	rows, err := q.db.QueryContext(ctx, getEntriesByAccountId,
 		arg.AccountID,
-		arg.FromTime,
-		arg.ToTime,
+		arg.Column2,
+		arg.Column3,
 		arg.Limit,
 	)
 	if err != nil {
