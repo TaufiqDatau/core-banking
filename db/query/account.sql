@@ -3,6 +3,10 @@ SELECT * FROM accounts
 WHERE owner= $1 
 LIMIT 1;
 
+-- name: GetListAccount :many
+SELECT * FROM accounts 
+LIMIT $1;
+
 -- name: CreateAccount :one
 INSERT INTO accounts(
   owner,
@@ -12,6 +16,11 @@ INSERT INTO accounts(
   $2
 )
 RETURNING *;
+
+-- name: GetAccountById :one
+SELECT * FROM accounts
+WHERE id = $1
+LIMIT 1;
 
 -- name: UpdateBalanceByAccountId :one
 UPDATE accounts
@@ -23,3 +32,5 @@ RETURNING *;
 DELETE FROM accounts
 WHERE id = $1
 RETURNING *;
+
+
