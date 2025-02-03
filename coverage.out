@@ -7,7 +7,7 @@ github.com/taufiqDatau/core-banking/util/random.go:35.2,35.23 1 0
 github.com/taufiqDatau/core-banking/db/sqlc/account.sql.go:28.96,38.2 4 1
 github.com/taufiqDatau/core-banking/db/sqlc/account.sql.go:46.81,56.2 4 1
 github.com/taufiqDatau/core-banking/db/sqlc/account.sql.go:64.82,74.2 4 1
-github.com/taufiqDatau/core-banking/db/sqlc/account.sql.go:82.90,92.2 4 0
+github.com/taufiqDatau/core-banking/db/sqlc/account.sql.go:82.90,92.2 4 1
 github.com/taufiqDatau/core-banking/db/sqlc/account.sql.go:99.87,101.16 2 1
 github.com/taufiqDatau/core-banking/db/sqlc/account.sql.go:101.16,103.3 1 0
 github.com/taufiqDatau/core-banking/db/sqlc/account.sql.go:104.2,106.18 3 1

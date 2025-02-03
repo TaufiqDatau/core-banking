@@ -55,7 +55,7 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/taufiqDatau/core-banking/db/sqlc/account.sql.go (77.1%)</option>
+				<option value="file0">github.com/taufiqDatau/core-banking/db/sqlc/account.sql.go (88.6%)</option>
 				
 				<option value="file1">github.com/taufiqDatau/core-banking/db/sqlc/db.go (50.0%)</option>
 				
@@ -158,7 +158,7 @@ WHERE owner= $1
 LIMIT 1
 `
 
-func (q *Queries) GetAccountFromName(ctx context.Context, owner string) (Account, error) <span class="cov0" title="0">{
+func (q *Queries) GetAccountFromName(ctx context.Context, owner string) (Account, error) <span class="cov8" title="1">{
         row := q.db.QueryRowContext(ctx, getAccountFromName, owner)
         var i Account
         err := row.Scan(
