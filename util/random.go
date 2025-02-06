@@ -16,7 +16,7 @@ func RandomBalance(min, max float64) string {
 	source := rand.NewSource(time.Now().UnixNano())
 	rng := rand.New(source)
 
-	randBalance := rng.Float64() * (max - min)
+	randBalance := min + rng.Float64()*(max-min)
 
 	return fmt.Sprintf("%.2f", randBalance)
 }

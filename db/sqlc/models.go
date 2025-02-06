@@ -6,14 +6,13 @@ package db
 
 import (
 	"database/sql"
-	"time"
 )
 
 type Account struct {
 	ID        int64        `json:"id"`
 	Owner     string       `json:"owner"`
 	Balance   string       `json:"balance"`
-	CreatedAt time.Time    `json:"created_at"`
+	CreatedAt sql.NullTime `json:"created_at"`
 }
 
 type Entry struct {

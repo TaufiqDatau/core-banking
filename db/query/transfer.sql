@@ -29,3 +29,8 @@ AND ($3::timestamp IS NULL OR created_at<= $3::timestamp)
 ORDER BY created_at
 LIMIT $4
 ;
+
+-- name: GetTransferFromId :one
+SELECT * FROM transfers
+WHERE id = $1
+LIMIT 1;

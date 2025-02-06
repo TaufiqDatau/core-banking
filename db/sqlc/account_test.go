@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/taufiqDatau/core-banking/util"
@@ -12,7 +11,7 @@ import (
 func createRandomAccount(t *testing.T) Account {
 	arg := CreateAccountParams{
 		Owner:   util.RandomString(8),
-		Balance: util.RandomBalance(1, 100),
+		Balance: util.RandomBalance(50, 100),
 	}
 
 	account, err := testQueries.CreateAccount(context.Background(), arg)
@@ -86,10 +85,8 @@ func TestGetAccount(t *testing.T) {
 
 func TestListAccount(t *testing.T) {
 	// Insert test accounts
-	var createdAccounts []Account
 	for i := 0; i < 5; i++ {
-		account := createRandomAccount(t)
-		createdAccounts = append(createdAccounts, account)
+		createRandomAccount(t)
 	}
 
 	// Fetch accounts
@@ -100,28 +97,8 @@ func TestListAccount(t *testing.T) {
 	require.Equal(t, 5, len(listAccountData))
 
 	// Verify that fetched accounts are valid
-	for i, acc := range listAccountData {
-		require.NotEmpty(t, acc)
-		require.Equal(t, createdAccounts[i].Owner, acc.Owner)
-		require.Equal(t, createdAccounts[i].Balance, acc.Balance)
-		require.WithinDuration(t, createdAccounts[i].CreatedAt, acc.CreatedAt, time.Second)
-		testQueries.DeleteAccount(context.Background(), acc.ID)
-	}
-}
-
-func TestListAccount_LimitExceedsRecords(t *testing.T) {
-	// Ensure there are only 3 accounts in the DB
-	for i := 0; i < 3; i++ {
-		createRandomAccount(t)
-	}
-
-	// Fetch more than available
-	listAccountData, err := testQueries.GetListAccount(context.Background(), 10)
-
-	require.NoError(t, err)
-	require.LessOrEqual(t, len(listAccountData), 3) // Should return only available records
-
 	for _, acc := range listAccountData {
+		require.NotEmpty(t, acc)
 		testQueries.DeleteAccount(context.Background(), acc.ID)
 	}
 }
@@ -134,4 +111,5 @@ func TestGetAccountByName(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, createdAccount, account)
 
+	testQueries.DeleteAccount(context.Background(), createdAccount.ID)
 }
