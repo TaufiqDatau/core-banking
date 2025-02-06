@@ -22,6 +22,12 @@ SELECT * FROM accounts
 WHERE id = $1
 LIMIT 1;
 
+-- name: GetAccountByIdForUpdate :one
+SELECT * FROM accounts
+WHERE id = $1
+LIMIT 1
+FOR UPDATE;
+
 -- name: UpdateBalanceByAccountId :one
 UPDATE accounts
 SET balance = $2

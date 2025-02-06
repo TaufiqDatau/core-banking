@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"math/big"
 )
 
@@ -19,6 +20,8 @@ func NewStore(db *sql.DB) *Store {
 		Queries: New(db),
 	}
 }
+
+var txKey = struct{}{}
 
 func (store *Store) execTx(ctx context.Context, fn func(*Queries) error) error {
 	tx, err := store.db.BeginTx(ctx, nil)
@@ -59,6 +62,10 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 
 	err := store.execTx(ctx, func(q *Queries) error {
 		var trxErr error
+
+		txName := ctx.Value(txKey)
+
+		log.Println(txName, "create transfer")
 		result.Transfer, trxErr = q.InsertNewTransfer(ctx,
 			InsertNewTransferParams{
 				FromAccountID: arg.SenderAccountId,
@@ -70,6 +77,7 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return trxErr
 		}
 
+		log.Println(txName, "create entry 1")
 		result.SenderEntry, trxErr = q.InsertNewEntry(ctx, InsertNewEntryParams{
 			AccountID: arg.SenderAccountId,
 			Amount:    fmt.Sprintf("-%s", arg.Amount),
@@ -79,6 +87,7 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return trxErr
 		}
 
+		log.Println(txName, "create entry 2")
 		result.ReceiverEntry, trxErr = q.InsertNewEntry(ctx, InsertNewEntryParams{
 			AccountID: arg.ReceiverAccountId,
 			Amount:    arg.Amount,
@@ -88,16 +97,17 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return trxErr
 		}
 
-		// TODO: Update balance for sender and receiver account
 		amount, _ := new(big.Float).SetString(arg.Amount)
 
-		result.SenderAccount, trxErr = q.GetAccountById(ctx, arg.SenderAccountId)
+		log.Println(txName, "get account 1")
+		result.SenderAccount, trxErr = q.GetAccountByIdForUpdate(ctx, arg.SenderAccountId)
 
 		if trxErr != nil {
 			return trxErr
 		}
 		balance, _ := new(big.Float).SetString(result.SenderAccount.Balance)
 
+		log.Println(txName, "update balance 1")
 		result.SenderAccount, trxErr = q.UpdateBalanceByAccountId(ctx, UpdateBalanceByAccountIdParams{
 			ID:      arg.SenderAccountId,
 			Balance: new(big.Float).Sub(balance, amount).Text('f', 2),
@@ -107,13 +117,15 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return trxErr
 		}
 
-		result.ReceiverAccount, trxErr = q.GetAccountById(ctx, arg.ReceiverAccountId)
+		log.Println(txName, "get account 2")
+		result.ReceiverAccount, trxErr = q.GetAccountByIdForUpdate(ctx, arg.ReceiverAccountId)
 
 		if trxErr != nil {
 			return trxErr
 		}
 		balance, _ = new(big.Float).SetString(result.ReceiverAccount.Balance)
 
+		log.Println(txName, "update balance 2")
 		result.ReceiverAccount, trxErr = q.UpdateBalanceByAccountId(ctx, UpdateBalanceByAccountIdParams{
 			ID:      arg.ReceiverAccountId,
 			Balance: new(big.Float).Add(balance, amount).Text('f', 2),
