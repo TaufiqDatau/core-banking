@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"math/big"
 )
 
 // Store provide all functions to execute db queries and transaction
@@ -63,9 +62,6 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 	err := store.execTx(ctx, func(q *Queries) error {
 		var trxErr error
 
-		txName := ctx.Value(txKey)
-
-		log.Println(txName, "create transfer")
 		result.Transfer, trxErr = q.InsertNewTransfer(ctx,
 			InsertNewTransferParams{
 				FromAccountID: arg.SenderAccountId,
@@ -77,7 +73,6 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return trxErr
 		}
 
-		log.Println(txName, "create entry 1")
 		result.SenderEntry, trxErr = q.InsertNewEntry(ctx, InsertNewEntryParams{
 			AccountID: arg.SenderAccountId,
 			Amount:    fmt.Sprintf("-%s", arg.Amount),
@@ -87,7 +82,6 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return trxErr
 		}
 
-		log.Println(txName, "create entry 2")
 		result.ReceiverEntry, trxErr = q.InsertNewEntry(ctx, InsertNewEntryParams{
 			AccountID: arg.ReceiverAccountId,
 			Amount:    arg.Amount,
@@ -97,50 +91,55 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return trxErr
 		}
 
-		amount, _ := new(big.Float).SetString(arg.Amount)
-
-		log.Println(txName, "get account 1")
-		result.SenderAccount, trxErr = q.GetAccountByIdForUpdate(ctx, arg.SenderAccountId)
-
-		if trxErr != nil {
-			return trxErr
-		}
-		balance, _ := new(big.Float).SetString(result.SenderAccount.Balance)
-
-		log.Println(txName, "update balance 1")
-		result.SenderAccount, trxErr = q.UpdateBalanceByAccountId(ctx, UpdateBalanceByAccountIdParams{
-			ID:      arg.SenderAccountId,
-			Balance: new(big.Float).Sub(balance, amount).Text('f', 2),
+		result.SenderAccount, trxErr = q.AddAccountBalanceById(ctx, AddAccountBalanceByIdParams{
+			Amount: fmt.Sprintf("-%s", arg.Amount),
+			ID:     arg.SenderAccountId,
 		})
 
 		if trxErr != nil {
 			return trxErr
 		}
 
-		log.Println(txName, "get account 2")
-		result.ReceiverAccount, trxErr = q.GetAccountByIdForUpdate(ctx, arg.ReceiverAccountId)
-
-		if trxErr != nil {
-			return trxErr
-		}
-		balance, _ = new(big.Float).SetString(result.ReceiverAccount.Balance)
-
-		log.Println(txName, "update balance 2")
-		result.ReceiverAccount, trxErr = q.UpdateBalanceByAccountId(ctx, UpdateBalanceByAccountIdParams{
-			ID:      arg.ReceiverAccountId,
-			Balance: new(big.Float).Add(balance, amount).Text('f', 2),
+		result.ReceiverAccount, trxErr = q.AddAccountBalanceById(ctx, AddAccountBalanceByIdParams{
+			ID:     arg.ReceiverAccountId,
+			Amount: arg.Amount,
 		})
 
 		if trxErr != nil {
 			return trxErr
 		}
 
+		log.Printf("Transfer with ID %d succesfully created", result.Transfer.ID)
 		return nil
 	})
 
 	if err != nil {
+		log.Printf("transaction failed with this error: %s", err.Error())
 		return result, err
 	}
 
 	return result, nil
+}
+
+func UpdateAccountBalanceAfterTransaction(ctx context.Context, q *Queries, account1, account2 Account, amount string) (Account, Account, error) {
+	var err error
+	account1, err = q.AddAccountBalanceById(ctx, AddAccountBalanceByIdParams{
+		ID:     account1.ID,
+		Amount: fmt.Sprintf("-%s", amount),
+	})
+
+	if err != nil {
+		return account1, account2, err
+	}
+
+	account2, err = q.AddAccountBalanceById(ctx, AddAccountBalanceByIdParams{
+		ID:     account2.ID,
+		Amount: amount,
+	})
+
+	if err != nil {
+		return account1, account2, err
+	}
+
+	return account1, account2, nil
 }

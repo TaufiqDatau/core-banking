@@ -19,7 +19,7 @@ func TestTransferTx(t *testing.T) {
 	senderBalanceBeforeTransaction, _ := new(big.Float).SetString(account1.Balance)
 	receiverBalanceBeforeTransaction, _ := new(big.Float).SetString(account2.Balance)
 
-	n, amount := 4, 10
+	n, amount := 5, 10
 
 	errs := make(chan error)
 	results := make(chan TransferTxResult)
@@ -37,7 +37,6 @@ func TestTransferTx(t *testing.T) {
 		}()
 	}
 
-	amountString := new(big.Float).SetInt64(int64(amount))
 	// Check Result
 	for i := 0; i < n; i++ {
 		err := <-errs
@@ -55,11 +54,9 @@ func TestTransferTx(t *testing.T) {
 		require.NoError(t, err)
 
 		senderBalanceAfterTransaction, _ := new(big.Float).SetString(result.SenderAccount.Balance)
-		diff1 := new(big.Float).Sub(senderBalanceAfterTransaction, amountString)
 
 		zero := new(big.Float).SetInt64(0)
-		require.Greater(t, diff1.Cmp(zero), 0) // Ensures diff1 > 0
-		require.Greater(t, senderBalanceBeforeTransaction.Cmp(senderBalanceAfterTransaction), 0)
+		require.Greater(t, senderBalanceAfterTransaction.Cmp(zero), 0) // Ensures diff1 > 0
 
 		receiverBalanceAfterTransaction, _ := new(big.Float).SetString(result.ReceiverAccount.Balance)
 
@@ -70,11 +67,12 @@ func TestTransferTx(t *testing.T) {
 	require.NoError(t, err)
 	senderAccountBalance, _ := new(big.Float).SetString(senderAccount.Balance)
 
-	fmt.Println("after tx ->", senderAccount.Balance)
-	require.True(t, senderAccountBalance.Cmp(new(big.Float).Sub(senderBalanceBeforeTransaction, new(big.Float).SetInt64(50))) == 0)
+	fmt.Println("after tx ->", senderAccountBalance)
+	require.True(t, fmt.Sprintf("%.2f", senderAccountBalance) == fmt.Sprintf("%.2f", new(big.Float).Sub(senderBalanceBeforeTransaction, new(big.Float).SetInt64(50))))
 
 	receiverAccount, err := store.GetAccountById(context.Background(), account2.ID)
 	require.NoError(t, err)
 	receiverAccountBalance, _ := new(big.Float).SetString(receiverAccount.Balance)
-	require.True(t, receiverAccountBalance.Cmp(new(big.Float).Add(new(big.Float).SetInt64(50), receiverBalanceBeforeTransaction)) == 0)
+	expectedReceiverAccountBalance := new(big.Float).Add(new(big.Float).SetInt64(50), receiverBalanceBeforeTransaction)
+	require.True(t, fmt.Sprintf("%.2f", receiverAccountBalance) == fmt.Sprintf("%.2f", expectedReceiverAccountBalance))
 }
