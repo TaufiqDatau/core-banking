@@ -167,6 +167,46 @@ func (q *Queries) GetListAccount(ctx context.Context, limit int32) ([]Account, e
 	return items, nil
 }
 
+const lockAccountForTransfer = `-- name: LockAccountForTransfer :many
+SELECT id, owner, balance, created_at FROM accounts
+WHERE id IN($1, $2)
+ORDER BY id
+FOR UPDATE
+`
+
+type LockAccountForTransferParams struct {
+	Fromaccounid int64 `json:"fromaccounid"`
+	Toaccountid  int64 `json:"toaccountid"`
+}
+
+func (q *Queries) LockAccountForTransfer(ctx context.Context, arg LockAccountForTransferParams) ([]Account, error) {
+	rows, err := q.db.QueryContext(ctx, lockAccountForTransfer, arg.Fromaccounid, arg.Toaccountid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Account
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.Owner,
+			&i.Balance,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateBalanceByAccountId = `-- name: UpdateBalanceByAccountId :one
 UPDATE accounts
 SET balance = $2

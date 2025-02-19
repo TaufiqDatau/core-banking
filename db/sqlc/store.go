@@ -62,6 +62,15 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 	err := store.execTx(ctx, func(q *Queries) error {
 		var trxErr error
 
+		_, trxErr = q.LockAccountForTransfer(ctx, LockAccountForTransferParams{
+			Fromaccounid: arg.SenderAccountId,
+			Toaccountid:  arg.ReceiverAccountId,
+		})
+
+		if trxErr != nil {
+			return trxErr
+		}
+
 		result.Transfer, trxErr = q.InsertNewTransfer(ctx,
 			InsertNewTransferParams{
 				FromAccountID: arg.SenderAccountId,
@@ -91,20 +100,7 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return trxErr
 		}
 
-		result.SenderAccount, trxErr = q.AddAccountBalanceById(ctx, AddAccountBalanceByIdParams{
-			Amount: fmt.Sprintf("-%s", arg.Amount),
-			ID:     arg.SenderAccountId,
-		})
-
-		if trxErr != nil {
-			return trxErr
-		}
-
-		result.ReceiverAccount, trxErr = q.AddAccountBalanceById(ctx, AddAccountBalanceByIdParams{
-			ID:     arg.ReceiverAccountId,
-			Amount: arg.Amount,
-		})
-
+		result.SenderAccount, result.ReceiverAccount, trxErr = UpdateAccountBalanceAfterTransaction(ctx, q, arg.SenderAccountId, arg.ReceiverAccountId, arg.Amount)
 		if trxErr != nil {
 			return trxErr
 		}
@@ -121,25 +117,26 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 	return result, nil
 }
 
-func UpdateAccountBalanceAfterTransaction(ctx context.Context, q *Queries, account1, account2 Account, amount string) (Account, Account, error) {
+func UpdateAccountBalanceAfterTransaction(ctx context.Context, q *Queries, account1Id, account2Id int64, amount string) (Account, Account, error) {
 	var err error
-	account1, err = q.AddAccountBalanceById(ctx, AddAccountBalanceByIdParams{
-		ID:     account1.ID,
+	var result1, result2 Account
+	result1, err = q.AddAccountBalanceById(ctx, AddAccountBalanceByIdParams{
+		ID:     account1Id,
 		Amount: fmt.Sprintf("-%s", amount),
 	})
 
 	if err != nil {
-		return account1, account2, err
+		return result1, result2, err
 	}
 
-	account2, err = q.AddAccountBalanceById(ctx, AddAccountBalanceByIdParams{
-		ID:     account2.ID,
+	result2, err = q.AddAccountBalanceById(ctx, AddAccountBalanceByIdParams{
+		ID:     account2Id,
 		Amount: amount,
 	})
 
 	if err != nil {
-		return account1, account2, err
+		return result1, result2, err
 	}
 
-	return account1, account2, nil
+	return result1, result2, nil
 }

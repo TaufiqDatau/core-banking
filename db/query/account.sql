@@ -45,4 +45,8 @@ DELETE FROM accounts
 WHERE id = $1
 RETURNING *;
 
-
+-- name: LockAccountForTransfer :many
+SELECT * FROM accounts
+WHERE id IN(sqlc.arg(fromAccounId), sqlc.arg(toAccountId))
+ORDER BY id
+FOR UPDATE;
