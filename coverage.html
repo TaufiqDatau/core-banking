@@ -55,15 +55,19 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/taufiqDatau/core-banking/db/sqlc/account.sql.go (88.6%)</option>
+				<option value="file0">github.com/taufiqDatau/core-banking/db/sqlc/account.sql.go (79.3%)</option>
 				
 				<option value="file1">github.com/taufiqDatau/core-banking/db/sqlc/db.go (50.0%)</option>
 				
-				<option value="file2">github.com/taufiqDatau/core-banking/db/sqlc/entry.sql.go (0.0%)</option>
+				<option value="file2">github.com/taufiqDatau/core-banking/db/sqlc/entry.sql.go (29.6%)</option>
 				
-				<option value="file3">github.com/taufiqDatau/core-banking/db/sqlc/transfer.sql.go (0.0%)</option>
+				<option value="file3">github.com/taufiqDatau/core-banking/db/sqlc/store.go (70.5%)</option>
 				
-				<option value="file4">github.com/taufiqDatau/core-banking/util/random.go (76.9%)</option>
+				<option value="file4">github.com/taufiqDatau/core-banking/db/sqlc/transfer.sql.go (25.8%)</option>
+				
+				<option value="file5">github.com/taufiqDatau/core-banking/util/error.go (0.0%)</option>
+				
+				<option value="file6">github.com/taufiqDatau/core-banking/util/random.go (76.9%)</option>
 				
 				</select>
 			</div>
@@ -87,6 +91,30 @@ package db
 import (
         "context"
 )
+
+const addAccountBalanceById = `-- name: AddAccountBalanceById :one
+UPDATE accounts
+SET balance = balance + $1
+WHERE id = $2
+RETURNING id, owner, balance, created_at
+`
+
+type AddAccountBalanceByIdParams struct {
+        Amount string `json:"amount"`
+        ID     int64  `json:"id"`
+}
+
+func (q *Queries) AddAccountBalanceById(ctx context.Context, arg AddAccountBalanceByIdParams) (Account, error) <span class="cov8" title="1">{
+        row := q.db.QueryRowContext(ctx, addAccountBalanceById, arg.Amount, arg.ID)
+        var i Account
+        err := row.Scan(
+                &amp;i.ID,
+                &amp;i.Owner,
+                &amp;i.Balance,
+                &amp;i.CreatedAt,
+        )
+        return i, err
+}</span>
 
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts(
@@ -152,6 +180,25 @@ func (q *Queries) GetAccountById(ctx context.Context, id int64) (Account, error)
         return i, err
 }</span>
 
+const getAccountByIdForUpdate = `-- name: GetAccountByIdForUpdate :one
+SELECT id, owner, balance, created_at FROM accounts
+WHERE id = $1
+LIMIT 1
+FOR NO KEY UPDATE
+`
+
+func (q *Queries) GetAccountByIdForUpdate(ctx context.Context, id int64) (Account, error) <span class="cov0" title="0">{
+        row := q.db.QueryRowContext(ctx, getAccountByIdForUpdate, id)
+        var i Account
+        err := row.Scan(
+                &amp;i.ID,
+                &amp;i.Owner,
+                &amp;i.Balance,
+                &amp;i.CreatedAt,
+        )
+        return i, err
+}</span>
+
 const getAccountFromName = `-- name: GetAccountFromName :one
 SELECT id, owner, balance, created_at FROM accounts 
 WHERE owner= $1 
@@ -177,6 +224,46 @@ LIMIT $1
 
 func (q *Queries) GetListAccount(ctx context.Context, limit int32) ([]Account, error) <span class="cov8" title="1">{
         rows, err := q.db.QueryContext(ctx, getListAccount, limit)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">defer rows.Close()
+        var items []Account
+        for rows.Next() </span><span class="cov8" title="1">{
+                var i Account
+                if err := rows.Scan(
+                        &amp;i.ID,
+                        &amp;i.Owner,
+                        &amp;i.Balance,
+                        &amp;i.CreatedAt,
+                ); err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+                <span class="cov8" title="1">items = append(items, i)</span>
+        }
+        <span class="cov8" title="1">if err := rows.Close(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if err := rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return items, nil</span>
+}
+
+const lockAccountForTransfer = `-- name: LockAccountForTransfer :many
+SELECT id, owner, balance, created_at FROM accounts
+WHERE id IN($1, $2)
+ORDER BY id
+FOR UPDATE
+`
+
+type LockAccountForTransferParams struct {
+        Fromaccounid int64 `json:"fromaccounid"`
+        Toaccountid  int64 `json:"toaccountid"`
+}
+
+func (q *Queries) LockAccountForTransfer(ctx context.Context, arg LockAccountForTransferParams) ([]Account, error) <span class="cov8" title="1">{
+        rows, err := q.db.QueryContext(ctx, lockAccountForTransfer, arg.Fromaccounid, arg.Toaccountid)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
@@ -279,7 +366,7 @@ WHERE id = $1
 RETURNING id, account_id, amount, created_at
 `
 
-func (q *Queries) DeleteEntryById(ctx context.Context, id int64) (Entry, error) <span class="cov0" title="0">{
+func (q *Queries) DeleteEntryById(ctx context.Context, id int64) (Entry, error) <span class="cov8" title="1">{
         row := q.db.QueryRowContext(ctx, deleteEntryById, id)
         var i Entry
         err := row.Scan(
@@ -356,7 +443,7 @@ type InsertNewEntryParams struct {
         Amount    string `json:"amount"`
 }
 
-func (q *Queries) InsertNewEntry(ctx context.Context, arg InsertNewEntryParams) (Entry, error) <span class="cov0" title="0">{
+func (q *Queries) InsertNewEntry(ctx context.Context, arg InsertNewEntryParams) (Entry, error) <span class="cov8" title="1">{
         row := q.db.QueryRowContext(ctx, insertNewEntry, arg.AccountID, arg.Amount)
         var i Entry
         err := row.Scan(
@@ -393,7 +480,151 @@ func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (Entry
 }</span>
 </pre>
 		
-		<pre class="file" id="file3" style="display: none">// Code generated by sqlc. DO NOT EDIT.
+		<pre class="file" id="file3" style="display: none">package db
+
+import (
+        "context"
+        "database/sql"
+        "fmt"
+        "log"
+)
+
+// Store provide all functions to execute db queries and transaction
+type Store struct {
+        *Queries
+        db *sql.DB
+}
+
+func NewStore(db *sql.DB) *Store <span class="cov8" title="1">{
+        return &amp;Store{
+                db:      db,
+                Queries: New(db),
+        }
+}</span>
+
+var txKey = struct{}{}
+
+func (store *Store) execTx(ctx context.Context, fn func(*Queries) error) error <span class="cov8" title="1">{
+        tx, err := store.db.BeginTx(ctx, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">q := New(tx)
+
+        err = fn(q)
+
+        if err != nil </span><span class="cov0" title="0">{
+                if rbError := tx.Rollback(); rbError != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("tx error: %v, rb error: %v", err, rbError)
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        <span class="cov8" title="1">return tx.Commit()</span>
+}
+
+type TransferTxParams struct {
+        SenderAccountId   int64  `json:"sender_account_id"`
+        ReceiverAccountId int64  `json:"receiver_account_id"`
+        Amount            string `json:"amount"`
+}
+type TransferTxResult struct {
+        Transfer        Transfer `json:"transfer"`
+        SenderAccount   Account  `json:"sender_account"`
+        ReceiverAccount Account  `json:"receiver_account"`
+        SenderEntry     Entry    `json:"sender_entry"`
+        ReceiverEntry   Entry    `json:"receiver_entry"`
+}
+
+func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error) <span class="cov8" title="1">{
+
+        var result TransferTxResult
+
+        err := store.execTx(ctx, func(q *Queries) error </span><span class="cov8" title="1">{
+                var trxErr error
+
+                _, trxErr = q.LockAccountForTransfer(ctx, LockAccountForTransferParams{
+                        Fromaccounid: arg.SenderAccountId,
+                        Toaccountid:  arg.ReceiverAccountId,
+                })
+
+                if trxErr != nil </span><span class="cov0" title="0">{
+                        return trxErr
+                }</span>
+
+                <span class="cov8" title="1">result.Transfer, trxErr = q.InsertNewTransfer(ctx,
+                        InsertNewTransferParams{
+                                FromAccountID: arg.SenderAccountId,
+                                ToAccountID:   arg.ReceiverAccountId,
+                                Amount:        arg.Amount,
+                        })
+
+                if trxErr != nil </span><span class="cov0" title="0">{
+                        return trxErr
+                }</span>
+
+                <span class="cov8" title="1">result.SenderEntry, trxErr = q.InsertNewEntry(ctx, InsertNewEntryParams{
+                        AccountID: arg.SenderAccountId,
+                        Amount:    fmt.Sprintf("-%s", arg.Amount),
+                })
+
+                if trxErr != nil </span><span class="cov0" title="0">{
+                        return trxErr
+                }</span>
+
+                <span class="cov8" title="1">result.ReceiverEntry, trxErr = q.InsertNewEntry(ctx, InsertNewEntryParams{
+                        AccountID: arg.ReceiverAccountId,
+                        Amount:    arg.Amount,
+                })
+
+                if trxErr != nil </span><span class="cov0" title="0">{
+                        return trxErr
+                }</span>
+
+                <span class="cov8" title="1">result.SenderAccount, result.ReceiverAccount, trxErr = UpdateAccountBalanceAfterTransaction(ctx, q, arg.SenderAccountId, arg.ReceiverAccountId, arg.Amount)
+                if trxErr != nil </span><span class="cov0" title="0">{
+                        return trxErr
+                }</span>
+
+                <span class="cov8" title="1">log.Printf("Transfer with ID %d succesfully created", result.Transfer.ID)
+                return nil</span>
+        })
+
+        <span class="cov8" title="1">if err != nil </span><span class="cov0" title="0">{
+                log.Printf("transaction failed with this error: %s", err.Error())
+                return result, err
+        }</span>
+
+        <span class="cov8" title="1">return result, nil</span>
+}
+
+func UpdateAccountBalanceAfterTransaction(ctx context.Context, q *Queries, account1Id, account2Id int64, amount string) (Account, Account, error) <span class="cov8" title="1">{
+        var err error
+        var result1, result2 Account
+        result1, err = q.AddAccountBalanceById(ctx, AddAccountBalanceByIdParams{
+                ID:     account1Id,
+                Amount: fmt.Sprintf("-%s", amount),
+        })
+
+        if err != nil </span><span class="cov0" title="0">{
+                return result1, result2, err
+        }</span>
+
+        <span class="cov8" title="1">result2, err = q.AddAccountBalanceById(ctx, AddAccountBalanceByIdParams{
+                ID:     account2Id,
+                Amount: amount,
+        })
+
+        if err != nil </span><span class="cov0" title="0">{
+                return result1, result2, err
+        }</span>
+
+        <span class="cov8" title="1">return result1, result2, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">// Code generated by sqlc. DO NOT EDIT.
 // versions:
 //   sqlc v1.28.0
 // source: transfer.sql
@@ -413,6 +644,25 @@ DELETE FROM transfers
 
 func (q *Queries) DeleteTransferById(ctx context.Context, id int64) (Transfer, error) <span class="cov0" title="0">{
         row := q.db.QueryRowContext(ctx, deleteTransferById, id)
+        var i Transfer
+        err := row.Scan(
+                &amp;i.ID,
+                &amp;i.FromAccountID,
+                &amp;i.ToAccountID,
+                &amp;i.Amount,
+                &amp;i.CreatedAt,
+        )
+        return i, err
+}</span>
+
+const getTransferFromId = `-- name: GetTransferFromId :one
+SELECT id, from_account_id, to_account_id, amount, created_at FROM transfers
+WHERE id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetTransferFromId(ctx context.Context, id int64) (Transfer, error) <span class="cov8" title="1">{
+        row := q.db.QueryRowContext(ctx, getTransferFromId, id)
         var i Transfer
         err := row.Scan(
                 &amp;i.ID,
@@ -493,7 +743,7 @@ type InsertNewTransferParams struct {
         Amount        string `json:"amount"`
 }
 
-func (q *Queries) InsertNewTransfer(ctx context.Context, arg InsertNewTransferParams) (Transfer, error) <span class="cov0" title="0">{
+func (q *Queries) InsertNewTransfer(ctx context.Context, arg InsertNewTransferParams) (Transfer, error) <span class="cov8" title="1">{
         row := q.db.QueryRowContext(ctx, insertNewTransfer, arg.FromAccountID, arg.ToAccountID, arg.Amount)
         var i Transfer
         err := row.Scan(
@@ -532,7 +782,14 @@ func (q *Queries) UpdateTransferAmount(ctx context.Context, arg UpdateTransferAm
 }</span>
 </pre>
 		
-		<pre class="file" id="file4" style="display: none">package util
+		<pre class="file" id="file5" style="display: none">package util
+
+func CheckError(err error) bool <span class="cov0" title="0">{
+        return err != nil
+}</span>
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package util
 
 import (
         "fmt"
@@ -550,7 +807,7 @@ func RandomBalance(min, max float64) string <span class="cov8" title="1">{
         source := rand.NewSource(time.Now().UnixNano())
         rng := rand.New(source)
 
-        randBalance := rng.Float64() * (max - min)
+        randBalance := min + rng.Float64()*(max-min)
 
         return fmt.Sprintf("%.2f", randBalance)
 }</span>
